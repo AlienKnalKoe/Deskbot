@@ -553,7 +553,7 @@ lvgl:
                   y: 0
                   width: 42
                   height: 42
-                  bg_opa: 0%
+                  bg_opa: transp
                   border_opa: transp
                   shadow_opa: transp
                   on_long_press:
@@ -676,9 +676,16 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0004  Back"
-                        align: CENTER
+                        text: "\U000F0004"
+                        align: LEFT_MID
+                        x: 14
                         text_font: font_icons
+                        text_color: 0x8888ff
+                    - label:
+                        text: "Back"
+                        align: RIGHT_MID
+                        x: -14
+                        text_font: font_small
                         text_color: 0x8888ff
 
     ############################################################
@@ -909,9 +916,16 @@ lvgl:
                           entity_id: all
                   widgets:
                     - label:
-                        text: "\U000F0493  All Off"
-                        align: CENTER
+                        text: "\U000F0493"
+                        align: TOP_MID
+                        y: 6
                         text_font: font_icons
+                        text_color: 0xff6666
+                    - label:
+                        text: "All Off"
+                        align: BOTTOM_MID
+                        y: -6
+                        text_font: font_small
                         text_color: 0xff6666
 
               # Back
@@ -928,9 +942,16 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0004  Back"
-                        align: CENTER
+                        text: "\U000F0004"
+                        align: LEFT_MID
+                        x: 14
                         text_font: font_icons
+                        text_color: 0x8888ff
+                    - label:
+                        text: "Back"
+                        align: RIGHT_MID
+                        x: -14
+                        text_font: font_small
                         text_color: 0x8888ff
 
     ############################################################
@@ -1032,9 +1053,16 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0156  F"
-                        align: CENTER
+                        text: "\U000F0156"
+                        align: TOP_MID
+                        y: 6
                         text_font: font_icons
+                        text_color: 0xdd88ff
+                    - label:
+                        text: "Female"
+                        align: BOTTOM_MID
+                        y: -6
+                        text_font: font_small
                         text_color: 0xdd88ff
 
               - button:
@@ -1052,9 +1080,16 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0157  M"
-                        align: CENTER
+                        text: "\U000F0157"
+                        align: TOP_MID
+                        y: 6
                         text_font: font_icons
+                        text_color: 0x88bbff
+                    - label:
+                        text: "Male"
+                        align: BOTTOM_MID
+                        y: -6
+                        text_font: font_small
                         text_color: 0x88bbff
 
               - button:
@@ -1092,9 +1127,16 @@ lvgl:
                     - button.press: restart_button
                   widgets:
                     - label:
-                        text: "\U000F0450  Restart"
-                        align: CENTER
+                        text: "\U000F0450"
+                        align: TOP_MID
+                        y: 6
                         text_font: font_icons
+                        text_color: 0xff6666
+                    - label:
+                        text: "Restart"
+                        align: BOTTOM_MID
+                        y: -6
+                        text_font: font_small
                         text_color: 0xff6666
 
               # Back
@@ -1111,9 +1153,16 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0004  Back"
-                        align: CENTER
+                        text: "\U000F0004"
+                        align: LEFT_MID
+                        x: 14
                         text_font: font_icons
+                        text_color: 0x8888ff
+                    - label:
+                        text: "Back"
+                        align: RIGHT_MID
+                        x: -14
+                        text_font: font_small
                         text_color: 0x8888ff
 
 ##############################################################
