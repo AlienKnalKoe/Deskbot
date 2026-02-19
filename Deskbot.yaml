@@ -84,7 +84,7 @@ font:
   - file: "gfonts://Roboto"
     id: font_small
     size: 20
-    glyphs: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,:-+%/()!?'< "
+    glyphs: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,:-+%/()!?'<>"
 
   - file: "gfonts://Roboto"
     id: font_medium
@@ -94,7 +94,7 @@ font:
   - file: "gfonts://Roboto"
     id: font_large
     size: 60
-    glyphs: "0123456789: "
+    glyphs: "0123456789:"
 
   # MDI icons — \U000FXXXX codepoints
   # lightbulb=F0335  movie=F0438  sunny=F059D  night=F0594
@@ -220,6 +220,11 @@ globals:
     type: int
     restore_value: no
     initial_value: "209"
+
+  - id: bl_test_freq_idx
+    type: int
+    restore_value: no
+    initial_value: "0"
 
 ##############################################################
 # HOME ASSISTANT
@@ -553,7 +558,7 @@ lvgl:
                   y: 0
                   width: 42
                   height: 42
-                  bg_opa: transp
+                  bg_opa: 0%
                   border_opa: transp
                   shadow_opa: transp
                   on_long_press:
@@ -676,15 +681,8 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0004"
-                        align: LEFT_MID
-                        x: 14
-                        text_font: font_icons
-                        text_color: 0x8888ff
-                    - label:
-                        text: "Back"
-                        align: RIGHT_MID
-                        x: -14
+                        text: "< Back"
+                        align: CENTER
                         text_font: font_small
                         text_color: 0x8888ff
 
@@ -916,16 +914,9 @@ lvgl:
                           entity_id: all
                   widgets:
                     - label:
-                        text: "\U000F0493"
-                        align: TOP_MID
-                        y: 6
+                        text: "\U000F0493  All Off"
+                        align: CENTER
                         text_font: font_icons
-                        text_color: 0xff6666
-                    - label:
-                        text: "All Off"
-                        align: BOTTOM_MID
-                        y: -6
-                        text_font: font_small
                         text_color: 0xff6666
 
               # Back
@@ -942,15 +933,8 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0004"
-                        align: LEFT_MID
-                        x: 14
-                        text_font: font_icons
-                        text_color: 0x8888ff
-                    - label:
-                        text: "Back"
-                        align: RIGHT_MID
-                        x: -14
+                        text: "< Back"
+                        align: CENTER
                         text_font: font_small
                         text_color: 0x8888ff
 
@@ -1053,16 +1037,9 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0156"
-                        align: TOP_MID
-                        y: 6
+                        text: "\U000F0156  F"
+                        align: CENTER
                         text_font: font_icons
-                        text_color: 0xdd88ff
-                    - label:
-                        text: "Female"
-                        align: BOTTOM_MID
-                        y: -6
-                        text_font: font_small
                         text_color: 0xdd88ff
 
               - button:
@@ -1080,16 +1057,9 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0157"
-                        align: TOP_MID
-                        y: 6
+                        text: "\U000F0157  M"
+                        align: CENTER
                         text_font: font_icons
-                        text_color: 0x88bbff
-                    - label:
-                        text: "Male"
-                        align: BOTTOM_MID
-                        y: -6
-                        text_font: font_small
                         text_color: 0x88bbff
 
               - button:
@@ -1127,15 +1097,8 @@ lvgl:
                     - button.press: restart_button
                   widgets:
                     - label:
-                        text: "\U000F0450"
-                        align: TOP_MID
-                        y: 6
-                        text_font: font_icons
-                        text_color: 0xff6666
-                    - label:
                         text: "Restart"
-                        align: BOTTOM_MID
-                        y: -6
+                        align: CENTER
                         text_font: font_small
                         text_color: 0xff6666
 
@@ -1153,17 +1116,31 @@ lvgl:
                     - lvgl.page.show: face_page
                   widgets:
                     - label:
-                        text: "\U000F0004"
-                        align: LEFT_MID
-                        x: 14
-                        text_font: font_icons
-                        text_color: 0x8888ff
-                    - label:
-                        text: "Back"
-                        align: RIGHT_MID
-                        x: -14
+                        text: "< Back"
+                        align: CENTER
                         text_font: font_small
                         text_color: 0x8888ff
+
+              # BL Test button
+              - button:
+                  x: 20
+                  y: 410
+                  width: 250
+                  height: 50
+                  bg_color: 0x1a2a1a
+                  border_color: 0x338833
+                  border_width: 2
+                  radius: 12
+                  shadow_opa: transp
+                  on_click:
+                    - script.execute: backlight_freq_test
+                  widgets:
+                    - label:
+                        id: bl_test_label
+                        text: "BL Freq Test"
+                        align: CENTER
+                        text_font: font_small
+                        text_color: 0x88ff88
 
 ##############################################################
 # RESTART BUTTON
@@ -1423,6 +1400,84 @@ script:
       - lvgl.widget.update:
           id: mouth_neutral
           bg_color: 0x00cc66
+
+
+
+  # ── Backlight frequency test ─────────────────────────────
+  # Tap "BL Freq Test" in settings to run.
+  # Watch the label — it shows current freq + brightness level.
+  # If 75% shows without flicker, that freq works well.
+  - id: backlight_freq_test
+    mode: single
+    then:
+      - globals.set:
+          id: bl_test_freq_idx
+          value: "0"
+      - script.execute: bl_test_step
+
+  # BL test: cycles 100/90/75/100% at the compiled-in frequency.
+  # Change frequency: in output section set ledc frequency: XXXHz, recompile.
+  # The label tells you which step you are on.
+  # If 75% shows NO flicker -> that freq is good. Tell us which one worked!
+  - id: bl_test_step
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return id(bl_test_freq_idx) >= 4;"
+          then:
+            - lvgl.label.update:
+                id: bl_test_label
+                text: "Done - flicker at 75pct?"
+            - light.turn_on:
+                id: display_backlight
+                brightness: 100%
+          else:
+            - if:
+                condition:
+                  lambda: "return id(bl_test_freq_idx) == 0;"
+                then:
+                  - lvgl.label.update:
+                      id: bl_test_label
+                      text: "Step 1 - 100pct"
+                  - light.turn_on:
+                      id: display_backlight
+                      brightness: 100%
+            - if:
+                condition:
+                  lambda: "return id(bl_test_freq_idx) == 1;"
+                then:
+                  - lvgl.label.update:
+                      id: bl_test_label
+                      text: "Step 2 - 90pct"
+                  - light.turn_on:
+                      id: display_backlight
+                      brightness: 90%
+            - if:
+                condition:
+                  lambda: "return id(bl_test_freq_idx) == 2;"
+                then:
+                  - lvgl.label.update:
+                      id: bl_test_label
+                      text: "Step 3 - 75pct - flicker?"
+                  - light.turn_on:
+                      id: display_backlight
+                      brightness: 75%
+            - if:
+                condition:
+                  lambda: "return id(bl_test_freq_idx) == 3;"
+                then:
+                  - lvgl.label.update:
+                      id: bl_test_label
+                      text: "Step 4 - 100pct"
+                  - light.turn_on:
+                      id: display_backlight
+                      brightness: 100%
+            - delay: 2000ms
+            - globals.set:
+                id: bl_test_freq_idx
+                value: !lambda "return id(bl_test_freq_idx) + 1;"
+            - script.execute: bl_test_step
 
 ##############################################################
 # CLOCK — refresh every minute
