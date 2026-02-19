@@ -1,0 +1,650 @@
+##############################################################
+# DESKBOT — ESP32-4848S040 (Guition)
+# ESPHome 2025.9.0+  |  mipi_rgb  |  LVGL  |  SD  |  GT911
+#
+# Syntax verified against current ESPHome LVGL docs:
+#   - button: (not btn:)
+#   - bg_opa: transp / cover / 0-255% (not raw integers)
+#   - hidden: true/false (flag, not style)
+#   - shadow_opa: transp (not shadow_width: 0)
+#   - border_opa: transp (to hide button borders)
+#   - lvgl.widget.update / lvgl.label.update (correct actions)
+##############################################################
+
+substitutions:
+  device_name: deskbot
+  friendly_name: Deskbot
+  timezone: "Europe/Amsterdam"   # ← your timezone
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: face_idle_loop
+
+esp32:
+  variant: esp32s3
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: y
+      CONFIG_FREERTOS_HZ: "1000"
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+  level: DEBUG
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${device_name} Fallback"
+    password: "deskbot123"
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "${timezone}"
+
+##############################################################
+# BACKLIGHT — PWM on GPIO38
+##############################################################
+
+output:
+  - platform: ledc
+    id: backlight_output
+    pin: GPIO38
+    frequency: 150Hz
+    zero_means_zero: true
+
+light:
+  - platform: monochromatic
+    name: "Backlight"
+    id: display_backlight
+    output: backlight_output
+    restore_mode: ALWAYS_ON
+    default_transition_length: 300ms
+
+##############################################################
+# SPI
+##############################################################
+spi:
+  - id: display_init_spi
+    interface: software
+    clk_pin: GPIO48
+    mosi_pin: GPIO47
+    miso_pin: GPIO41
+
+##############################################################
+# SD CARD — temporarily disabled
+#
+# ESPHome 2026.x does not currently include any SD‑card
+# component for ESP32‑S3 (neither sd_card nor sd_mmc_card).
+# Support was removed during the ESP‑IDF 5.x transition.
+#
+# When ESPHome reintroduces SD support, this section can be
+# restored to enable file storage and LVGL image loading.
+##############################################################
+
+# sd_card:
+#   id: sdcard
+#   spi_id: lcd_spi
+#   cs_pin: GPIO42
+#   format: FAT32
+#   mount_point: /sd
+
+##############################################################
+# I2C — GT911 touch
+##############################################################
+
+i2c:
+  id: i2c_bus
+  sda: GPIO19
+  scl:
+    number: GPIO45
+    ignore_strapping_warning: true
+  frequency: 400kHz
+
+##############################################################
+# DISPLAY — mipi_rgb, board preset handles all pins
+##############################################################
+
+display:
+  - platform: mipi_rgb
+    id: main_display
+    model: GUITION-4848S040
+    spi_id: display_init_spi
+    update_interval: never
+    auto_clear_enabled: false
+    rotation: 0
+
+##############################################################
+# TOUCHSCREEN — GT911
+##############################################################
+
+touchscreen:
+  - platform: gt911
+    id: touch
+    display: main_display
+    i2c_id: i2c_bus
+    address: 0x5D
+    transform:
+      swap_xy: true
+      mirror_x: true
+      mirror_y: false
+    on_touch:
+      then:
+        - script.execute: face_react_to_touch
+
+##############################################################
+# GLOBALS — mood state + notification text
+##############################################################
+
+globals:
+  - id: mood_state
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: notif_text
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+##############################################################
+# HOME ASSISTANT
+##############################################################
+
+text_sensor:
+  - platform: homeassistant
+    id: ha_notification
+    entity_id: input_text.deskbot_notification
+    on_value:
+      then:
+        - globals.set:
+            id: notif_text
+            value: !lambda "return x;"
+        - globals.set:
+            id: mood_state
+            value: "2"
+        - script.execute: face_show_notification
+
+sensor:
+  - platform: homeassistant
+    id: ha_mood
+    entity_id: input_number.deskbot_mood
+    on_value:
+      then:
+        - globals.set:
+            id: mood_state
+            value: !lambda "return (int)x;"
+
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "Uptime"
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+
+##############################################################
+# LVGL
+##############################################################
+
+lvgl:
+  id: lvgl_component
+  buffer_size: 40%
+  color_depth: 16
+  touchscreens:
+    - touch
+
+  pages:
+    - id: face_page
+      bg_color: 0x080818
+
+      widgets:
+        # Root container — full screen
+        - obj:
+            x: 0
+            y: 0
+            width: 480
+            height: 480
+            bg_color: 0x080818
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            scrollbar_mode: "OFF"
+
+            widgets:
+
+              # ── LEFT EYE ─────────────────────────────
+              # Socket ring
+              - obj:
+                  id: left_eye_socket
+                  x: 95
+                  y: 155
+                  width: 130
+                  height: 130
+                  radius: 65
+                  bg_color: 0x0a0a1e
+                  border_width: 3
+                  border_color: 0x2233aa
+                  pad_all: 0
+
+              # Iris (animated color + size)
+              - obj:
+                  id: left_iris
+                  x: 120
+                  y: 180
+                  width: 80
+                  height: 80
+                  radius: 40
+                  bg_color: 0x0055ee
+                  border_width: 0
+
+              # Pupil
+              - obj:
+                  id: left_pupil
+                  x: 149
+                  y: 209
+                  width: 22
+                  height: 22
+                  radius: 11
+                  bg_color: 0x000000
+                  border_width: 0
+
+              # Specular highlight
+              - obj:
+                  id: left_shine
+                  x: 157
+                  y: 214
+                  width: 7
+                  height: 7
+                  radius: 4
+                  bg_color: 0xffffff
+                  border_width: 0
+
+              # Eyelid — height 0 = open, 130 = fully closed
+              - obj:
+                  id: left_eyelid
+                  x: 95
+                  y: 155
+                  width: 130
+                  height: 0
+                  radius: 65
+                  bg_color: 0x080818
+                  border_width: 0
+
+              # ── RIGHT EYE ────────────────────────────
+              - obj:
+                  id: right_eye_socket
+                  x: 255
+                  y: 155
+                  width: 130
+                  height: 130
+                  radius: 65
+                  bg_color: 0x0a0a1e
+                  border_width: 3
+                  border_color: 0x2233aa
+                  pad_all: 0
+
+              - obj:
+                  id: right_iris
+                  x: 280
+                  y: 180
+                  width: 80
+                  height: 80
+                  radius: 40
+                  bg_color: 0x0055ee
+                  border_width: 0
+
+              - obj:
+                  id: right_pupil
+                  x: 309
+                  y: 209
+                  width: 22
+                  height: 22
+                  radius: 11
+                  bg_color: 0x000000
+                  border_width: 0
+
+              - obj:
+                  id: right_shine
+                  x: 317
+                  y: 214
+                  width: 7
+                  height: 7
+                  radius: 4
+                  bg_color: 0xffffff
+                  border_width: 0
+
+              - obj:
+                  id: right_eyelid
+                  x: 255
+                  y: 155
+                  width: 130
+                  height: 0
+                  radius: 65
+                  bg_color: 0x080818
+                  border_width: 0
+
+              # ── MOUTH — swap hidden flag per expression ──
+              - obj:
+                  id: mouth_neutral
+                  x: 160
+                  y: 340
+                  width: 160
+                  height: 10
+                  radius: 5
+                  bg_color: 0x3355cc
+                  border_width: 0
+
+              - obj:
+                  id: mouth_happy
+                  x: 150
+                  y: 336
+                  width: 180
+                  height: 20
+                  radius: 10
+                  bg_color: 0x00ddaa
+                  border_width: 0
+                  hidden: true
+
+              - obj:
+                  id: mouth_alert
+                  x: 190
+                  y: 342
+                  width: 100
+                  height: 6
+                  radius: 3
+                  bg_color: 0xff4400
+                  border_width: 0
+                  hidden: true
+
+              # ── CHEEK BLUSH ──────────────────────────
+              - obj:
+                  id: left_cheek
+                  x: 55
+                  y: 298
+                  width: 75
+                  height: 28
+                  radius: 14
+                  bg_color: 0x550022
+                  bg_opa: 30%
+                  border_width: 0
+
+              - obj:
+                  id: right_cheek
+                  x: 350
+                  y: 298
+                  width: 75
+                  height: 28
+                  radius: 14
+                  bg_color: 0x550022
+                  bg_opa: 30%
+                  border_width: 0
+
+              # ── NOTIFICATION LABEL ───────────────────
+              - label:
+                  id: notif_label
+                  x: 10
+                  y: 442
+                  width: 460
+                  height: 34
+                  text: ""
+                  text_color: 0xffcc00
+                  bg_opa: transp
+
+              # ── TOUCH ZONES (invisible buttons) ──────
+              # Left third — toggle desk light
+              - button:
+                  id: zone_left
+                  x: 0
+                  y: 0
+                  width: 140
+                  height: 480
+                  bg_opa: transp
+                  border_opa: transp
+                  shadow_opa: transp
+                  on_click:
+                    - script.execute: face_react_to_touch
+                    - homeassistant.service:
+                        service: light.toggle
+                        data:
+                          entity_id: light.desk_light   # ← CHANGE ME
+
+              # Centre — tap face → happy expression
+              - button:
+                  id: zone_center
+                  x: 140
+                  y: 140
+                  width: 200
+                  height: 200
+                  bg_opa: transp
+                  border_opa: transp
+                  shadow_opa: transp
+                  on_click:
+                    - script.execute: face_happy_burst
+
+              # Right third — trigger a scene
+              - button:
+                  id: zone_right
+                  x: 340
+                  y: 0
+                  width: 140
+                  height: 480
+                  bg_opa: transp
+                  border_opa: transp
+                  shadow_opa: transp
+                  on_click:
+                    - script.execute: face_react_to_touch
+                    - homeassistant.service:
+                        service: scene.turn_on
+                        data:
+                          entity_id: scene.evening      # ← CHANGE ME
+
+##############################################################
+# SCRIPTS
+##############################################################
+
+script:
+
+  # Runs forever from boot — random blink every 3-7 seconds
+  - id: face_idle_loop
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: "return true;"
+          then:
+            - delay: !lambda "return 3000 + (rand() % 4000);"
+            - script.execute: do_blink
+            # 25% chance of a double-blink
+            - if:
+                condition:
+                  lambda: "return (rand() % 4) == 0;"
+                then:
+                  - delay: 180ms
+                  - script.execute: do_blink
+
+  # Single blink — grow eyelids closed, then open
+  - id: do_blink
+    mode: single
+    then:
+      - lvgl.widget.update:
+          id: left_eyelid
+          height: 130
+      - lvgl.widget.update:
+          id: right_eyelid
+          height: 130
+      - delay: 110ms
+      - lvgl.widget.update:
+          id: left_eyelid
+          height: 0
+      - lvgl.widget.update:
+          id: right_eyelid
+          height: 0
+
+  # Any touch — iris flashes bright then returns
+  - id: face_react_to_touch
+    mode: restart
+    then:
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x00bbff
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x00bbff
+      - delay: 500ms
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x0055ee
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x0055ee
+
+  # Tap face centre — cyan eyes, blush up, happy mouth, double blink
+  - id: face_happy_burst
+    mode: restart
+    then:
+      - globals.set:
+          id: mood_state
+          value: "1"
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x00ffcc
+          width: 90
+          height: 90
+          x: 115
+          y: 175
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x00ffcc
+          width: 90
+          height: 90
+          x: 275
+          y: 175
+      - lvgl.widget.update:
+          id: left_cheek
+          bg_color: 0xdd2255
+          bg_opa: 70%
+      - lvgl.widget.update:
+          id: right_cheek
+          bg_color: 0xdd2255
+          bg_opa: 70%
+      - lvgl.widget.update:
+          id: mouth_neutral
+          hidden: true
+      - lvgl.widget.update:
+          id: mouth_happy
+          hidden: false
+      - delay: 400ms
+      - script.execute: do_blink
+      - delay: 280ms
+      - script.execute: do_blink
+      - delay: 1500ms
+      - script.execute: face_reset_idle
+
+  # HA notification — orange eyes, flat mouth, scroll text 8s
+  - id: face_show_notification
+    mode: restart
+    then:
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0xff6600
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0xff6600
+      - lvgl.widget.update:
+          id: mouth_neutral
+          hidden: true
+      - lvgl.widget.update:
+          id: mouth_alert
+          hidden: false
+      - lvgl.label.update:
+          id: notif_label
+          text: !lambda "return id(notif_text).c_str();"
+      - delay: 8s
+      - lvgl.label.update:
+          id: notif_label
+          text: ""
+      - globals.set:
+          id: mood_state
+          value: "0"
+      - script.execute: face_reset_idle
+
+  # Restore all widgets to default idle state
+  - id: face_reset_idle
+    mode: single
+    then:
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x0055ee
+          width: 80
+          height: 80
+          x: 120
+          y: 180
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x0055ee
+          width: 80
+          height: 80
+          x: 280
+          y: 180
+      - lvgl.widget.update:
+          id: left_cheek
+          bg_color: 0x550022
+          bg_opa: 30%
+      - lvgl.widget.update:
+          id: right_cheek
+          bg_color: 0x550022
+          bg_opa: 30%
+      - lvgl.widget.update:
+          id: mouth_neutral
+          hidden: false
+      - lvgl.widget.update:
+          id: mouth_happy
+          hidden: true
+      - lvgl.widget.update:
+          id: mouth_alert
+          hidden: true
+      - globals.set:
+          id: mood_state
+          value: "0"
+
+##############################################################
+# RELAYS (built into board — comment out if unused)
+##############################################################
+
+switch:
+  - platform: gpio
+    name: "Relay 1"
+    pin:
+      number: GPIO40
+      inverted: true
+  - platform: gpio
+    name: "Relay 2"
+    pin:
+      number: GPIO2
+      inverted: true
+
+##############################################################
+# END
+##############################################################
