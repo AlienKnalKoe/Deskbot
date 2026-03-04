@@ -1,0 +1,138 @@
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${device_name} Fallback"
+    password: "deskbot123"
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+logger:
+  level: INFO
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "${timezone}"
+    on_time_sync:
+      - lvgl.label.update:
+          id: info_time_label
+          text: !lambda "return id(sntp_time).now().strftime(\"%H:%M\").c_str();"
+      - lvgl.label.update:
+          id: info_date_label
+          text: !lambda "return id(sntp_time).now().strftime(\"%A, %d %B\").c_str();"
+
+##############################################################
+# FONTS
+# - Roboto for all text (explicit glyphs list = no squares)
+# - MDI webfont for icons (codepoints listed in comments)
+##############################################################
+
+sensor:
+  - platform: homeassistant
+    id: ha_temperature
+    entity_id: weather.home
+    attribute: temperature
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: info_temp_label
+            text: !lambda |-
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%.1f C", x);
+              return std::string(buf);
+
+  - platform: homeassistant
+    id: ha_mood
+    entity_id: input_number.deskbot_mood
+    on_value:
+      then:
+        - globals.set:
+            id: mood_state
+            value: !lambda "return (int)x;"
+
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    id: wifi_signal_sensor
+    update_interval: 30s
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: settings_wifi_label
+            text: !lambda |-
+              char buf[32];
+              snprintf(buf, sizeof(buf), "WiFi:  %.0f dBm", x);
+              return std::string(buf);
+
+  - platform: uptime
+    name: "Uptime"
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+    id: ha_connection_status
+    on_press:
+      then:
+        - lvgl.label.update:
+            id: settings_ha_label
+            text: "HA: Connected"
+    on_release:
+      then:
+        - lvgl.label.update:
+            id: settings_ha_label
+            text: "HA: Offline"
+
+##############################################################
+# LVGL
+##############################################################
+
+text_sensor:
+  - platform: homeassistant
+    id: ha_notification
+    entity_id: input_text.deskbot_notification
+    on_value:
+      then:
+        - globals.set:
+            id: notif_text
+            value: !lambda "return x;"
+        - script.execute: face_show_notification
+
+  - platform: homeassistant
+    id: ha_weather_condition
+    entity_id: weather.home
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: info_weather_label
+            text: !lambda "return x.c_str();"
+
+button:
+  - platform: restart
+    id: restart_button
+    name: "Restart"
+
+##############################################################
+# SCRIPTS
+##############################################################
+
+switch:
+  - platform: gpio
+    name: "Relay 1"
+    pin:
+      number: GPIO40
+      inverted: true
+  - platform: gpio
+    name: "Relay 2"
+    pin:
+      number: GPIO2
+      inverted: true
+
+##############################################################
+# END
+##############################################################

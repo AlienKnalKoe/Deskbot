@@ -1,0 +1,379 @@
+script:
+
+  # Idle blink loop — forever from boot
+  - id: face_idle_loop
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: "return true;"
+          then:
+            - delay: !lambda "return 3000 + (rand() % 4000);"
+            - script.execute: do_blink
+            - if:
+                condition:
+                  lambda: "return (rand() % 4) == 0;"
+                then:
+                  - delay: 180ms
+                  - script.execute: do_blink
+
+  # Single blink
+  - id: do_blink
+    mode: single
+    then:
+      - lvgl.widget.update:
+          id: left_eyelid
+          height: 130
+      - lvgl.widget.update:
+          id: right_eyelid
+          height: 130
+      - delay: 110ms
+      - lvgl.widget.update:
+          id: left_eyelid
+          height: 0
+      - lvgl.widget.update:
+          id: right_eyelid
+          height: 0
+
+  # Pupil wander — random drift every 2-5s
+  - id: pupil_wander_loop
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: "return true;"
+          then:
+            - delay: !lambda "return 2000 + (rand() % 3000);"
+            - lambda: |-
+                int ox = (rand() % 25) - 12;
+                int oy = (rand() % 25) - 12;
+                lv_obj_set_pos(id(left_pupil),  id(pupil_home_lx) + ox, id(pupil_home_ly) + oy);
+                lv_obj_set_pos(id(left_shine),  id(pupil_home_lx) + ox + 8, id(pupil_home_ly) + oy + 5);
+                lv_obj_set_pos(id(right_pupil), id(pupil_home_rx) + ox, id(pupil_home_ry) + oy);
+                lv_obj_set_pos(id(right_shine), id(pupil_home_rx) + ox + 8, id(pupil_home_ry) + oy + 5);
+            - delay: 700ms
+            - lambda: |-
+                lv_obj_set_pos(id(left_pupil),  id(pupil_home_lx), id(pupil_home_ly));
+                lv_obj_set_pos(id(left_shine),  id(pupil_home_lx) + 8, id(pupil_home_ly) + 5);
+                lv_obj_set_pos(id(right_pupil), id(pupil_home_rx), id(pupil_home_ry));
+                lv_obj_set_pos(id(right_shine), id(pupil_home_rx) + 8, id(pupil_home_ry) + 5);
+
+  # Touch iris flash
+  - id: face_react_to_touch
+    mode: restart
+    then:
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x00bbff
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x00bbff
+      - delay: 500ms
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x0055ee
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x0055ee
+
+  # Happy burst
+  - id: face_happy_burst
+    mode: restart
+    then:
+      - globals.set:
+          id: mood_state
+          value: "1"
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x00ffcc
+          width: 90
+          height: 90
+          x: 115
+          y: 175
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x00ffcc
+          width: 90
+          height: 90
+          x: 275
+          y: 175
+      - lvgl.widget.update:
+          id: left_cheek
+          bg_color: 0xdd2255
+          bg_opa: 70%
+      - lvgl.widget.update:
+          id: right_cheek
+          bg_color: 0xdd2255
+          bg_opa: 70%
+      - lvgl.widget.update:
+          id: mouth_neutral
+          hidden: true
+      - lvgl.widget.update:
+          id: mouth_happy
+          hidden: false
+      - delay: 400ms
+      - script.execute: do_blink
+      - delay: 280ms
+      - script.execute: do_blink
+      - delay: 1500ms
+      - script.execute: face_reset_idle
+
+  # Alert + notification
+  - id: face_show_notification
+    mode: restart
+    then:
+      - lvgl.page.show: face_page
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0xff6600
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0xff6600
+      - lvgl.widget.update:
+          id: mouth_neutral
+          hidden: true
+      - lvgl.widget.update:
+          id: mouth_alert
+          hidden: false
+      - lvgl.label.update:
+          id: notif_label
+          text: !lambda "return id(notif_text).c_str();"
+      - delay: 8s
+      - lvgl.label.update:
+          id: notif_label
+          text: ""
+      - globals.set:
+          id: mood_state
+          value: "0"
+      - script.execute: face_reset_idle
+
+  # Reset to idle
+  - id: face_reset_idle
+    mode: single
+    then:
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x0055ee
+          width: 80
+          height: 80
+          x: 120
+          y: 180
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x0055ee
+          width: 80
+          height: 80
+          x: 280
+          y: 180
+      - lvgl.widget.update:
+          id: left_cheek
+          bg_color: 0x550022
+          bg_opa: 30%
+      - lvgl.widget.update:
+          id: right_cheek
+          bg_color: 0x550022
+          bg_opa: 30%
+      - lvgl.widget.update:
+          id: mouth_neutral
+          hidden: false
+      - lvgl.widget.update:
+          id: mouth_happy
+          hidden: true
+      - lvgl.widget.update:
+          id: mouth_alert
+          hidden: true
+      - globals.set:
+          id: mood_state
+          value: "0"
+
+  # Face styles
+  - id: face_set_female
+    mode: single
+    then:
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0xcc44aa
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0xcc44aa
+      - lvgl.widget.update:
+          id: left_eye_socket
+          border_color: 0x993388
+      - lvgl.widget.update:
+          id: right_eye_socket
+          border_color: 0x993388
+      - lvgl.widget.update:
+          id: mouth_neutral
+          bg_color: 0xff6699
+
+  - id: face_set_male
+    mode: single
+    then:
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x1144cc
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x1144cc
+      - lvgl.widget.update:
+          id: left_eye_socket
+          border_color: 0x224488
+      - lvgl.widget.update:
+          id: right_eye_socket
+          border_color: 0x224488
+      - lvgl.widget.update:
+          id: mouth_neutral
+          bg_color: 0x3355cc
+
+  - id: face_set_robot
+    mode: single
+    then:
+      - lvgl.widget.update:
+          id: left_iris
+          bg_color: 0x00ff88
+      - lvgl.widget.update:
+          id: right_iris
+          bg_color: 0x00ff88
+      - lvgl.widget.update:
+          id: left_eye_socket
+          border_color: 0x00aa55
+      - lvgl.widget.update:
+          id: right_eye_socket
+          border_color: 0x00aa55
+      - lvgl.widget.update:
+          id: mouth_neutral
+          bg_color: 0x00cc66
+
+
+
+  # ── Backlight frequency test ─────────────────────────────
+  # Tap "BL Freq Test" in settings to run.
+  # Watch the label — it shows current freq + brightness level.
+  # If 75% shows without flicker, that freq works well.
+  - id: backlight_freq_test
+    mode: single
+    then:
+      - globals.set:
+          id: bl_test_freq_idx
+          value: "0"
+      - script.execute: bl_test_step
+
+  # BL test: cycles 100/90/75/100% at the compiled-in frequency.
+  # Change frequency: in output section set ledc frequency: XXXHz, recompile.
+  # The label tells you which step you are on.
+  # If 75% shows NO flicker -> that freq is good. Tell us which one worked!
+  - id: bl_test_step
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return id(bl_test_freq_idx) >= 4;"
+          then:
+            - lvgl.label.update:
+                id: bl_test_label
+                text: "Done - flicker at 75pct?"
+            - light.turn_on:
+                id: display_backlight
+                brightness: 100%
+          else:
+            - if:
+                condition:
+                  lambda: "return id(bl_test_freq_idx) == 0;"
+                then:
+                  - lvgl.label.update:
+                      id: bl_test_label
+                      text: "Step 1 - 100pct"
+                  - light.turn_on:
+                      id: display_backlight
+                      brightness: 100%
+            - if:
+                condition:
+                  lambda: "return id(bl_test_freq_idx) == 1;"
+                then:
+                  - lvgl.label.update:
+                      id: bl_test_label
+                      text: "Step 2 - 90pct"
+                  - light.turn_on:
+                      id: display_backlight
+                      brightness: 90%
+            - if:
+                condition:
+                  lambda: "return id(bl_test_freq_idx) == 2;"
+                then:
+                  - lvgl.label.update:
+                      id: bl_test_label
+                      text: "Step 3 - 75pct - flicker?"
+                  - light.turn_on:
+                      id: display_backlight
+                      brightness: 75%
+            - if:
+                condition:
+                  lambda: "return id(bl_test_freq_idx) == 3;"
+                then:
+                  - lvgl.label.update:
+                      id: bl_test_label
+                      text: "Step 4 - 100pct"
+                  - light.turn_on:
+                      id: display_backlight
+                      brightness: 100%
+            - delay: 2000ms
+            - globals.set:
+                id: bl_test_freq_idx
+                value: !lambda "return id(bl_test_freq_idx) + 1;"
+            - script.execute: bl_test_step
+
+##############################################################
+# CLOCK — refresh every minute
+##############################################################
+
+interval:
+  - interval: 60s
+    then:
+      - lvgl.label.update:
+          id: info_time_label
+          text: !lambda "return id(sntp_time).now().strftime(\"%H:%M\").c_str();"
+      - lvgl.label.update:
+          id: info_date_label
+          text: !lambda "return id(sntp_time).now().strftime(\"%A, %d %B\").c_str();"
+
+##############################################################
+# RELAYS
+##############################################################
+
+globals:
+  - id: mood_state
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: notif_text
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+  - id: pupil_home_lx
+    type: int
+    restore_value: no
+    initial_value: "149"
+  - id: pupil_home_ly
+    type: int
+    restore_value: no
+    initial_value: "209"
+  - id: pupil_home_rx
+    type: int
+    restore_value: no
+    initial_value: "309"
+  - id: pupil_home_ry
+    type: int
+    restore_value: no
+    initial_value: "209"
+
+  - id: bl_test_freq_idx
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+##############################################################
+# HOME ASSISTANT
+##############################################################
+
