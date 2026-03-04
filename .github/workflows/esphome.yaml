@@ -16,5 +16,5 @@ jobs:
       - name: ESPHome Validate
         uses: esphome/build-action@v2
         with:
-          config_file: Deskbot.yaml # Use eve.yaml for the other repo
+          config_file: Deskbot.yaml
           version: latest
