@@ -1,0 +1,87 @@
+esp32:
+  variant: esp32s3
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+      CONFIG_FREERTOS_HZ: "1000"
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+spi:
+  - id: display_init_spi
+    interface: software
+    clk_pin: GPIO48
+    mosi_pin: GPIO47
+    miso_pin: GPIO41
+
+##############################################################
+# I2C — GT911 touch
+##############################################################
+
+i2c:
+  id: i2c_bus
+  sda: GPIO19
+  scl:
+    number: GPIO45
+    ignore_strapping_warning: true
+  frequency: 400kHz
+
+##############################################################
+# DISPLAY — no rotation, matches working Eve config
+##############################################################
+
+display:
+  - platform: mipi_rgb
+    id: main_display
+    model: GUITION-4848S040
+    spi_id: display_init_spi
+    update_interval: never
+    auto_clear_enabled: false
+
+##############################################################
+# TOUCHSCREEN
+##############################################################
+
+touchscreen:
+  - platform: gt911
+    id: touch
+    display: main_display
+    i2c_id: i2c_bus
+    address: 0x5D
+    transform:
+      swap_xy: true
+      mirror_x: true
+      mirror_y: false
+    on_touch:
+      then:
+        - script.execute: face_react_to_touch
+
+##############################################################
+# GLOBALS
+##############################################################
+
+output:
+  - platform: ledc
+    id: backlight_output
+    pin: GPIO38
+    frequency: 12000Hz
+    min_power: 0.08
+
+light:
+  - platform: monochromatic
+    name: "Backlight"
+    id: display_backlight
+    output: backlight_output
+    restore_mode: ALWAYS_ON
+    default_transition_length: 300ms
+
+##############################################################
+# SPI — software interface, needed for ST7701S init sequence
+##############################################################
+
