@@ -38,11 +38,12 @@ i2c:
 
 display:
   - platform: mipi_rgb
-    id: main_display
     model: GUITION-4848S040
+    id: my_display
     spi_id: display_init_spi
     update_interval: never
     auto_clear_enabled: false
+    rotation: 90 
 
 ##############################################################
 # TOUCHSCREEN
@@ -50,8 +51,8 @@ display:
 
 touchscreen:
   - platform: gt911
-    id: touch
-    display: main_display
+    id: gt911_touch
+    display: my_display
     i2c_id: i2c_bus
     address: 0x5D
     transform:
@@ -60,7 +61,11 @@ touchscreen:
       mirror_y: false
     on_touch:
       then:
-        - script.execute: face_react_to_touch
+        - light.control:          # Optional: instant bright on first touch
+            id: display_backlight
+            brightness: 100%
+            transition_length: 0.8s
+        # You can leave this empty now — LVGL's on_active will handle wake-up
 
 ##############################################################
 # GLOBALS

@@ -3,7 +3,7 @@ lvgl:
   buffer_size: 40%
   color_depth: 16
   touchscreens:
-    - touch
+    - gt911_touch
 
   pages:
 
